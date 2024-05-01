@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temperature Dashboard</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            text-align: center;
+        }
+        h1 {
+            color: #0056b3;
+        }
+        p {
+            font-size: 24px;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #eef;
+            border-left: 5px solid #0056b3;
+            border-radius: 4px;
+        }
+        .fire {
+            height: 20px;
+            background: linear-gradient(to top, #ff4723, #ffa500);
+            margin-top: 20px;
+            border-radius: 5px;
+            transition: height 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Water Temperature:</h1>
+        <p id="temperature">Loading temperature data...</p>
+        <div id="fire" class="fire"></div>
+    </div>
+
+    <script>
+        function getSensorData() {
+            var xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    var data = JSON.parse(xhr.responseText);
+                    var temperatureInFahrenheit = data.temperature * 1.8 + 32;
+                    document.getElementById("temperature").textContent = "Current temperature: " + data.temperature + " °C (" + temperatureInFahrenheit.toFixed(2) + " °F)";
+                    adjustFireHeight(data.temperature);
+                } else if (xhr.readyState === 4 && xhr.status !== 200) {
+                    document.getElementById("temperature").textContent = "Failed to load data.";
+                }
+            };
+            xhr.open("GET", "http://localhost:8080/watertemp/water", true);
+            xhr.send();
+        }
+
+        function adjustFireHeight(temp) {
+            var maxTemp = 100; // Adjust this based on expected max temperature
+            var height = Math.min(100, (temp / maxTemp) * 200); // Scale factor for visual effect
+            document.getElementById('fire').style.height = height + 'px';
+        }
+
+        // Call getSensorData initially and set interval for every 10 seconds
+        getSensorData();
+        setInterval(getSensorData, 10000);
+    </script>
+</body>
+</html>
