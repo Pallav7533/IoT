@@ -175,7 +175,7 @@ Customizable alerts and automation in a water quality monitoring system allow us
 
   
 
-   <p id="p-title">Final Program Code</p>
+   <p id="p-title">Node MCU Code</p>
 
     <hr class="featurette-divider">
 
@@ -183,127 +183,167 @@ Customizable alerts and automation in a water quality monitoring system allow us
       <div class="col-md-7">
         <p class="lead"><strong> <pre class="wp-block-code">
 
-            #include <Arduino.h>
-            #include <Wire.h>
-            #include <EEPROM.h>
-            #include <WiFi.h>
-            #include <OneWire.h>
-            #include <DallasTemperature.h>
-            #include <Adafruit_ADS1015.h>
-            #include <DFRobot_ESP_EC.h>
-            #include <Adafruit_GFX.h>
-            #include <Adafruit_SSD1306.h>
-             
-            #define SCREEN_WIDTH 128 // OLED display width, in pixels
-            #define SCREEN_HEIGHT 64 // OLED display height, in pixels
-             
-            // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
-            Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-             
-            #define ONE_WIRE_BUS 14                // this is the gpio pin 13 on esp32.
-            OneWire oneWire(ONE_WIRE_BUS);
-            DallasTemperature sensors(&oneWire);
-             
-            DFRobot_ESP_EC ec;
-            Adafruit_ADS1115 ads;
-             
-            float voltage, ecValue, temperature = 25;
-             
-            String apiKey = "**************";     //  Enter your Write API key from ThingSpeak
-             
-            const char *ssid =  "**************";     // replace with your wifi ssid and wpa2 key
-            const char *pass =  "**************";
-            const char* server = "api.thingspeak.com";
-             
-            WiFiClient client;
-             
-             
-            void setup()
-            {
-              Serial.begin(115200);
-              EEPROM.begin(32);//needed EEPROM.begin to store calibration k in eeprom
-              ec.begin();
-              sensors.begin();
-              if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
-                Serial.println(F("SSD1306 allocation failed"));
-                for (;;);
+            
+#include <.ESP8266WiFi.h>
+#include <.ESP8266HTTPClient.h>
+#include <.OneWire.h>
+#include <.DallasTemperature.h>
+
+// *IMPORTANT:* Store SSID and password securely (see below)
+const char* ssid = "LAPTOP-A49IGV84 0057";
+const char* password = "11111111";
+const char* serverAddress = "http://192.168.137.1:8080/watertemp/water"; // Replace with your servlet URL
+
+#define ONE_WIRE_BUS D2
+
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
+WiFiClient client;
+
+void setup() {
+  Serial.begin(9600);
+  sensors.begin();
+
+  // *Load SSID and password securely (recommended):*
+
+  // 1. Environment Variables (ESP8266 boards):
+  #ifdef ARDUINO_ESP8266_NODEMCU
+  ssid = getenv("WIFI_SSID");
+  password = getenv("WIFI_PASSWORD");
+  #endif
+
+  // 2. Separate Configuration File (optional):
+  // You'll need to implement this logic to read the credentials from a file.
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  Serial.println("Connecting to WiFi...");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Connected to the WiFi network");
+}
+
+void loop() {
+  // Request temperature readings
+  sensors.requestTemperatures();
+
+  // Read temperature and format it to two decimal places
+  float temperature = sensors.getTempCByIndex(0);
+  String temperatureString = String(temperature, 2);
+
+  // Send temperature data to the server
+  sendDataToServer(temperatureString);
+
+  // Delay between readings
+  delay(10000); // Read temperature every 10 seconds
+}
+
+void sendDataToServer(const String& temperature) {
+  HTTPClient http;
+
+  if (http.begin(client, serverAddress)) {
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");  // For POST data
+    String postData = "temperature=" + temperature;
+    int httpResponseCode = http.POST(postData);
+
+    if (httpResponseCode > 0) {
+      Serial.printf("HTTP Response code: %d\n", httpResponseCode);
+      String response = http.getString();
+      Serial.println(response);
+    } else {
+      Serial.printf("HTTP Error: %s\n", http.errorToString(httpResponseCode).c_str());
+    }
+
+    http.end();
+  } else {
+    Serial.println("Unable to connect to server.");
+  }
+}
+
+          </pre></strong></p>
+      </div>
+      <div class="siren-image">
+      </div>
+    </div>
+
+    <!-- /END THE FEATURETTES -->
+
+   </div>
+   <div class="container-marketing" style=" filter: drop-shadow( 5px 10px 5px rgb(123, 121, 121));">
+
+  
+
+   <p id="p-title">Java Code</p>
+
+    <hr class="featurette-divider">
+
+    <div class="pre.wp-block-code">
+      <div class="col-md-7">
+        <p class="lead"><strong> <pre class="wp-block-code">
+
+          import jakarta.servlet.ServletException;
+          import jakarta.servlet.annotation.WebServlet;
+          import jakarta.servlet.http.HttpServlet;
+          import jakarta.servlet.http.HttpServletRequest;
+          import jakarta.servlet.http.HttpServletResponse;
+          import java.io.IOException;
+          import java.io.PrintWriter;
+          
+          @WebServlet("/water")
+          public class water extends HttpServlet {
+              private static final long serialVersionUID = 1L;
+              private String temperature = "No data";
+          
+              @Override
+              protected void doPost(HttpServletRequest request, HttpServletResponse response)
+                      throws ServletException, IOException {
+                  // Extract temperature data from request parameter
+                  temperature = request.getParameter("temperature");
+          
+                  // Log the received temperature
+                  System.out.println("Received water temperature: " + temperature + " °C");
+          
+                  // Send a response back to the client
+                  response.getWriter().write("Temperature data received successfully!");
               }
-              delay(2000);
-              display.clearDisplay();
-             
-              Serial.println("Connecting to ");
-              Serial.println(ssid);
-             
-             
-              WiFi.begin(ssid, pass);
-             
-              while (WiFi.status() != WL_CONNECTED)
-              {
-                delay(500);
-                Serial.print(".");
-              }
-              Serial.println("");
-              Serial.println("WiFi connected");
-            }
-             
-             
-            void loop()
-            {
-              voltage = analogRead(A0); // A0 is the gpio 36
-              sensors.requestTemperatures();
-              temperature = sensors.getTempCByIndex(0);  // read your temperature sensor to execute temperature compensation
-              ecValue = ec.readEC(voltage, temperature); // convert voltage to EC with temperature compensation
-             
-              Serial.print("Temperature:");
-              Serial.print(temperature, 2);
-              Serial.println("ºC");
-             
-              Serial.print("EC:");
-              Serial.println(ecValue, 2);
-             
-              display.setTextSize(2);
-              display.setTextColor(WHITE);
-             
-              display.setCursor(0, 10);
-              display.print("T:");
-              display.print(temperature, 2);
-              display.drawCircle(85, 10, 2, WHITE); // put degree symbol ( ° )
-              display.setCursor(90, 10);
-              display.print("C");
-             
-              display.setCursor(0, 40);
-              display.print("EC:");
-              display.print(ecValue, 2);
-              display.display();
-              delay(1500);
-              display.clearDisplay();
-             
-              ec.calibration(voltage, temperature); // calibration process by Serail CMD
-             
-              if (client.connect(server, 80))  //   "184.106.153.149" or api.thingspeak.com
-              {
-             
-                String postStr = apiKey;
-                postStr += "&field1=";
-                postStr += String(temperature, 2);
-                postStr += "&field2=";
-                postStr += String(ecValue, 2);
-                postStr += "\r\n\r\n";
-                delay(500);
-             
-                client.print("POST /update HTTP/1.1\n");
-                client.print("Host: api.thingspeak.com\n");
-                client.print("Connection: close\n");
-                client.print("X-THINGSPEAKAPIKEY: " + apiKey + "\n");
-                client.print("Content-Type: application/x-www-form-urlencoded\n");
-                client.print("Content-Length: ");
-                client.print(postStr.length());
-                client.print("\n\n");
-                client.print(postStr);
-                delay(500);
-              }
-              client.stop();
-            }
+          
+              @Override
+          protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                  throws ServletException, IOException {
+          
+              // Simulate data (replace with your actual logic to get data)
+              // String temperature = String.valueOf(Math.random() * 30 + 20);
+              // String humidity = String.valueOf(Math.random() * 80 + 20);
+              // String action = "Sample Action"; // Optional
+          
+              // Set response content type as JSON
+              response.setContentType("application/json");
+          
+          
+              response.setHeader("Access-Control-Allow-Origin", "*"); // Replace with your side origin(e.g., http://localhost:3000)
+              response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS"); 
+               // Allow GET requests
+              response.setHeader("Access-Control-Allow-Headers", "Content-Type"); 
+               // Allow specific headers (optional)
+          
+              // Create JSON string manually
+              StringBuilder jsonData = new StringBuilder("{");
+              jsonData.append("\"temperature\":").append(temperature);
+          
+              //     jsonData.append(",\"action\":").append("\"").append(action).append("\"");
+              // }
+              jsonData.append("}");
+          
+              // Write JSON data to response
+              PrintWriter writer = response.getWriter();
+              writer.write(jsonData.toString());
+              writer.flush();
+          }
+          
+          }
 
           </pre></strong></p>
       </div>
